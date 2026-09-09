@@ -8,7 +8,7 @@ Einfacher Belohnungs-Tracker für die Grundschule. Eine Datei `index.html` — o
 
 1. Öffne **`index.html`** in **Google Chrome**, **Microsoft Edge** oder **Safari** auf dem Tablet.
 2. Einmal **«Mikrofon erlauben»** tippen (Warm-up) — danach merkt sich der Browser die Erlaubnis möglichst dauerhaft.
-3. Funktioniert **offline** nach dem Öffnen; Daten liegen im Browser (`localStorage`, Schlüssel `classroom-plus-v6`).
+3. Funktioniert **offline** nach dem Öffnen; Daten liegen im Browser (`localStorage`, Schlüssel `classroom-plus-v7`; ältere v6/v5-Daten werden migriert).
 
 > **Hinweis zu `file://`:** Unter `file://` bleibt die Mikrofon-Erlaubnis oft **nicht** gespeichert (erneute Abfrage möglich). Empfohlen: lokalen Server starten, z. B.  
 > `python3 -m http.server 8080`  
@@ -22,27 +22,36 @@ Einfacher Belohnungs-Tracker für die Grundschule. Eine Datei `index.html` — o
 
 ## Regeln (Plus, Minus & Sterne)
 
-### Plus (3 × 5)
+### Plus (2 × 5, größere Slots)
 
 - Gute Arbeit → **+1 Plus** (füllt den nächsten leeren Slot).
-- Maximal **15 Plus** pro Schüler, dargestellt als **3 Reihen à 5 Felder**.
+- Maximal **10 Plus** pro Schüler, dargestellt als **2 Reihen à 5 Felder** (deutlicher Abstand zwischen den Reihen, große Tippfeldern).
 
-### Minus (eigene Zeile)
+### Minus (unabhängig von Plus)
 
-- **Minus** erhöht den Minus-Zähler um 1.
-- Minus darf **nicht über Plus hinausgehen**: bei 0 Plus wirkt Minus nicht (Toast). Bei z. B. 7 Plus sind höchstens 7 Minus möglich.
-- Visuell: eine **Minus-Zeile** mit −-Symbolen unter dem Plus-Raster.
-- Die ersten *n* gefüllten Plus-Slots werden bei *n* Minus **storniert** (gedimmt / durchgestrichen). Die übrigen gefüllten Plus bleiben **aktiv** (hell).
-- Beispiel: **7 Plus + 3 Minus** → 3 Plus storniert, **4 Plus aktiv**.
+- **Minus** erhöht den Minus-Zähler um 1 — **auch bei 0 Plus** (keine Obergrenze an Plus gekoppelt).
+- Maximal **10 Minus**, ebenfalls **2 Reihen à 5** unter dem Plus-Raster.
+- Visuell: Plus-Slots, die durch Minus storniert sind, bleiben **gedimmt** für `min(Plus, Minus)`. Wenn Minus > Plus, sind **alle** Plus gedimmt; die **zusätzlichen Minus** bleiben in der Minus-Zeile sichtbar.
+- Beispiel: **2 Minus zuerst**, danach Plus → Minus zählen schon; später gefüllte Plus starten ggf. storniert, bis Minus ausgeglichen wird.
+
+### Karten-Bedienung (Slots)
+
+| Geste | Aktion |
+|--------|--------|
+| **Einfachklick** auf leeren Plus-Slot | +1 Plus |
+| **Doppelklick** auf gefüllten Plus-Slot (aktiv oder storniert) | −1 Plus (`max(0, pluses−1)`) |
+| **Einfachklick** auf leeren Minus-Slot | +1 Minus |
+| **Doppelklick** auf gefüllten Minus-Slot | −1 Minus (`max(0, minuses−1)`) |
+
+Die Karten-Buttons **＋ / −** bleiben Shortcuts zum Hinzufügen. Einfach- und Doppelklick greifen auf unterschiedliche Slot-Zustände (leer vs. gefüllt), damit sie sich nicht beißen.
 
 ### Effektive Plus & Sterne (können erlöschen)
 
-- **Effektive Plus** = Plus − Minus (mindestens 0).
-- Sterne werden aus den effektiven Plus **abgeleitet** (nicht dauerhaft „gesammelt“):
+- **Effektive Plus** = `max(0, Plus − Minus)`.
+- Sterne werden aus den effektiven Plus **abgeleitet**:
   - effektiv ≥ **5** → 1 Stern
   - effektiv ≥ **10** → 2 Sterne
-  - effektiv ≥ **15** → 3 Sterne
-- Sinken die effektiven Plus durch Minus unter 5 / 10 / 15, **erlischt** der entsprechende Stern wieder (сгорает). Steigen sie erneut, kommen die Sterne zurück.
+- Sinken die effektiven Plus durch Minus unter 5 / 10, **erlischt** der entsprechende Stern wieder. Steigen sie erneut, kommen die Sterne zurück.
 
 ### Zurücksetzen
 
@@ -79,7 +88,7 @@ Aktionswörter: **plus**, **Minus** (sowie **Stern**/**Sternchen** → Plus). De
 | Klasse | Die 19 Namen oben (Zähler null) |
 | Zurücksetzen | Plus und Minus auf null (Namen bleiben) |
 
-Auf der Karte: ＋ / −, Umbenennen ✏️, Entfernen 🗑️ (mit Bestätigung).
+Auf der Karte: Tippen auf leere Plus-/Minus-Slots, Doppelklick auf gefüllte Slots zum Entfernen; Buttons ＋ / − als Shortcuts; Umbenennen ✏️, Entfernen 🗑️ (mit Bestätigung).
 
 ## Dateien
 

@@ -274,6 +274,10 @@
       gap: 4px;
       min-width: 0;
       transition: box-shadow 0.2s;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-user-drag: none;
+      touch-action: manipulation;
     }
     .card.flash-plus { animation: flashGreen 0.45s ease; }
     .card.flash-minus { animation: flashRed 0.45s ease; }
@@ -332,12 +336,14 @@
     .stats {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 5px;
+      flex: 1;
+      min-height: 0;
     }
 
     .pluses-block, .minuses-block, .stars-row {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 4px;
     }
 
@@ -349,34 +355,51 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.02em;
+      padding-top: 4px;
     }
 
-    .plus-grid {
+    .plus-grid, .minus-grid {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 7px;
+      flex: 1;
+      min-width: 0;
     }
 
     .plus-row, .minus-row {
       display: flex;
-      gap: 2px;
+      gap: 5px;
       align-items: center;
       flex-wrap: nowrap;
+      justify-content: space-between;
+    }
+
+    .slot {
+      flex: 1 1 0;
+      max-width: 32px;
+      aspect-ratio: 1;
+      min-width: 0;
+      min-height: 22px;
+      height: auto;
+      width: auto;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-user-drag: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .plus-dot {
-      width: 14px;
-      height: 14px;
       border-radius: 50%;
       background: var(--plus);
       color: #fff;
-      font-size: 0.55rem;
+      font-size: clamp(0.7rem, 1.6vw, 0.95rem);
       font-weight: 700;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 1px 2px rgba(90, 173, 110, 0.35);
-      flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(90, 173, 110, 0.4);
     }
 
     .plus-dot.cancelled {
@@ -388,56 +411,55 @@
     .plus-dot.cancelled::after {
       content: "";
       position: absolute;
-      left: 10%;
-      right: 10%;
+      left: 12%;
+      right: 12%;
       top: 50%;
-      height: 1.5px;
+      height: 2px;
       background: #a33a3a;
       transform: rotate(-28deg);
       border-radius: 1px;
     }
 
     .plus-empty {
-      width: 14px;
-      height: 14px;
       border-radius: 50%;
-      border: 1.5px dashed #c8dcc8;
-      background: transparent;
+      border: 2px dashed #b8d4b8;
+      background: rgba(232, 246, 235, 0.45);
       display: inline-flex;
-      flex-shrink: 0;
+    }
+    .plus-empty:active, .minus-empty:active {
+      transform: scale(0.94);
     }
 
     .minus-icon {
-      width: 14px;
-      height: 14px;
-      border-radius: 3px;
+      border-radius: 5px;
       background: var(--minus);
       color: #fff;
-      font-size: 0.65rem;
+      font-size: clamp(0.75rem, 1.7vw, 1rem);
       font-weight: 800;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       line-height: 1;
-      flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(217, 107, 107, 0.35);
     }
 
-    .minus-empty-hint {
-      font-size: 0.58rem;
-      color: #c8b8a8;
-      font-weight: 600;
+    .minus-empty {
+      border-radius: 5px;
+      border: 2px dashed #e0b4b4;
+      background: rgba(253, 238, 238, 0.45);
+      display: inline-flex;
     }
 
     .stars-row { align-items: center; min-height: 18px; }
 
     .star-slots {
       display: flex;
-      gap: 3px;
+      gap: 4px;
       align-items: center;
     }
 
     .star-slot {
-      font-size: 0.95rem;
+      font-size: 1.05rem;
       line-height: 1;
       color: var(--star-off);
       opacity: 0.45;
@@ -666,9 +688,12 @@
 (function () {
   'use strict';
 
-  const STORAGE_KEY = 'classroom-plus-v6';
-  const MAX_PLUSES = 15;
-  const MAX_MINUSES = 15;
+  const STORAGE_KEY = 'classroom-plus-v7';
+  const MAX_PLUSES = 10;
+  const MAX_MINUSES = 10;
+  const PLUS_ROWS = 2;
+  const MINUS_ROWS = 2;
+  const SLOTS_PER_ROW = 5;
   const ROSTER = [
     'Aian',
     'Amara',
@@ -710,7 +735,6 @@
   }
 
   function starsFromEffective(eff) {
-    if (eff >= 15) return 3;
     if (eff >= 10) return 2;
     if (eff >= 5) return 1;
     return 0;
@@ -759,14 +783,15 @@
   function load() {
     try {
       let raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) raw = localStorage.getItem('classroom-plus-v6');
       if (!raw) raw = localStorage.getItem('classroom-plus-v5');
       if (raw) {
         const data = JSON.parse(raw);
         if (Array.isArray(data)) {
           students = data.map(function (s) {
+            // Minuses are independent of pluses (no clamp to pluses).
             const pluses = Math.min(MAX_PLUSES, Math.max(0, parseInt(s.pluses, 10) || 0));
-            let minuses = Math.min(MAX_MINUSES, Math.max(0, parseInt(s.minuses, 10) || 0));
-            if (minuses > pluses) minuses = pluses;
+            const minuses = Math.min(MAX_MINUSES, Math.max(0, parseInt(s.minuses, 10) || 0));
             return {
               id: s.id || uid(),
               name: String(s.name || '').trim() || 'Ohne Namen',
@@ -799,7 +824,7 @@
     const s = students.find(function (x) { return x.id === id; });
     if (!s) return;
     if (s.pluses >= MAX_PLUSES) {
-      toast(s.name + ': schon 15 Plus (Maximum)', 'info');
+      toast(s.name + ': schon ' + MAX_PLUSES + ' Plus (Maximum)', 'info');
       flashCard(id, 'plus');
       return;
     }
@@ -813,20 +838,37 @@
       toast(s.name + ': +1 Plus → ★ ' + afterStars + ' (eff. ' + effectivePluses(s) + ')', 'star');
     } else {
       flashCard(id, 'plus');
-      toast(s.name + ': +1 Plus (' + s.pluses + '/15, eff. ' + effectivePluses(s) + ')', 'success');
+      toast(s.name + ': +1 Plus (' + s.pluses + '/' + MAX_PLUSES + ', eff. ' + effectivePluses(s) + ')', 'success');
+    }
+  }
+
+  function removePlus(id) {
+    const s = students.find(function (x) { return x.id === id; });
+    if (!s) return;
+    if (s.pluses <= 0) {
+      toast(s.name + ': keine Plus zum Entfernen', 'info');
+      return;
+    }
+    const beforeStars = starsFromEffective(effectivePluses(s));
+    s.pluses = Math.max(0, s.pluses - 1);
+    const afterStars = starsFromEffective(effectivePluses(s));
+    save();
+    render();
+    if (afterStars < beforeStars) {
+      flashCard(id, 'minus');
+      toast(s.name + ': Plus entfernt → ★ ' + afterStars + ' (eff. ' + effectivePluses(s) + ')', 'warn');
+    } else {
+      flashCard(id, 'plus');
+      toast(s.name + ': Plus entfernt (' + s.pluses + '/' + MAX_PLUSES + ', eff. ' + effectivePluses(s) + ')', 'info');
     }
   }
 
   function addMinus(id) {
     const s = students.find(function (x) { return x.id === id; });
     if (!s) return;
-    if (s.pluses <= 0) {
-      toast(s.name + ': keine Plus — Minus nicht möglich', 'warn');
-      flashCard(id, 'minus');
-      return;
-    }
-    if (s.minuses >= s.pluses) {
-      toast(s.name + ': Minus schon = Plus (Maximum)', 'warn');
+    // Minuses are independent of pluses — always allowed up to MAX_MINUSES.
+    if (s.minuses >= MAX_MINUSES) {
+      toast(s.name + ': schon ' + MAX_MINUSES + ' Minus (Maximum)', 'warn');
       flashCard(id, 'minus');
       return;
     }
@@ -835,11 +877,32 @@
     const afterStars = starsFromEffective(effectivePluses(s));
     save();
     render();
-    flashCard(id, afterStars < beforeStars ? 'minus' : 'minus');
+    flashCard(id, 'minus');
     if (afterStars < beforeStars) {
       toast(s.name + ': −1 → Stern erloschen (★ ' + afterStars + ', eff. ' + effectivePluses(s) + ')', 'warn');
     } else {
-      toast(s.name + ': −1 Minus (eff. ' + effectivePluses(s) + '/' + s.pluses + ')', 'warn');
+      toast(s.name + ': −1 Minus (' + s.minuses + '/' + MAX_MINUSES + ', eff. ' + effectivePluses(s) + ')', 'warn');
+    }
+  }
+
+  function removeMinus(id) {
+    const s = students.find(function (x) { return x.id === id; });
+    if (!s) return;
+    if (s.minuses <= 0) {
+      toast(s.name + ': keine Minus zum Entfernen', 'info');
+      return;
+    }
+    const beforeStars = starsFromEffective(effectivePluses(s));
+    s.minuses = Math.max(0, s.minuses - 1);
+    const afterStars = starsFromEffective(effectivePluses(s));
+    save();
+    render();
+    if (afterStars > beforeStars) {
+      flashCard(id, 'star');
+      toast(s.name + ': Minus entfernt → ★ ' + afterStars + ' (eff. ' + effectivePluses(s) + ')', 'star');
+    } else {
+      flashCard(id, 'minus');
+      toast(s.name + ': Minus entfernt (' + s.minuses + '/' + MAX_MINUSES + ', eff. ' + effectivePluses(s) + ')', 'info');
     }
   }
 
@@ -854,23 +917,25 @@
 
   function renderPlusSlot(state) {
     // state: 'empty' | 'active' | 'cancelled'
+    // Empty: single-click adds. Filled: double-click removes.
     if (state === 'empty') {
-      return '<span class="plus-empty" aria-hidden="true"></span>';
+      return '<span class="slot plus-empty" data-slot="plus" data-filled="0" title="Tippen: +1 Plus" role="button" tabindex="0" aria-label="Leerer Plus-Slot"></span>';
     }
     if (state === 'cancelled') {
-      return '<span class="plus-dot cancelled" aria-hidden="true">+</span>';
+      return '<span class="slot plus-dot cancelled" data-slot="plus" data-filled="1" title="Doppeltippen: Plus entfernen" role="button" tabindex="0" aria-label="Storniertes Plus">+</span>';
     }
-    return '<span class="plus-dot" aria-hidden="true">+</span>';
+    return '<span class="slot plus-dot" data-slot="plus" data-filled="1" title="Doppeltippen: Plus entfernen" role="button" tabindex="0" aria-label="Aktives Plus">+</span>';
   }
 
   function renderPluses(pluses, minuses) {
     const filled = Math.min(Math.max(0, pluses), MAX_PLUSES);
+    // Cancelled visuals = min(pluses, minuses); extra minuses stay only in minus row.
     const cancelled = Math.min(Math.max(0, minuses), filled);
     let html = '<div class="plus-grid" aria-label="' + filled + ' Plus, ' + cancelled + ' storniert">';
-    for (let row = 0; row < 3; row++) {
+    for (let row = 0; row < PLUS_ROWS; row++) {
       html += '<div class="plus-row">';
-      for (let col = 0; col < 5; col++) {
-        const i = row * 5 + col;
+      for (let col = 0; col < SLOTS_PER_ROW; col++) {
+        const i = row * SLOTS_PER_ROW + col;
         let state = 'empty';
         if (i < filled) {
           state = i < cancelled ? 'cancelled' : 'active';
@@ -883,14 +948,23 @@
     return html;
   }
 
+  function renderMinusSlot(filled) {
+    if (filled) {
+      return '<span class="slot minus-icon" data-slot="minus" data-filled="1" title="Doppeltippen: Minus entfernen" role="button" tabindex="0" aria-label="Minus">−</span>';
+    }
+    return '<span class="slot minus-empty" data-slot="minus" data-filled="0" title="Tippen: +1 Minus" role="button" tabindex="0" aria-label="Leerer Minus-Slot"></span>';
+  }
+
   function renderMinuses(n) {
     const count = Math.min(Math.max(0, n), MAX_MINUSES);
-    if (count === 0) {
-      return '<div class="minus-row"><span class="minus-empty-hint">—</span></div>';
-    }
-    let html = '<div class="minus-row" aria-label="' + count + ' Minus">';
-    for (let i = 0; i < count; i++) {
-      html += '<span class="minus-icon" aria-hidden="true">−</span>';
+    let html = '<div class="minus-grid" aria-label="' + count + ' Minus">';
+    for (let row = 0; row < MINUS_ROWS; row++) {
+      html += '<div class="minus-row">';
+      for (let col = 0; col < SLOTS_PER_ROW; col++) {
+        const i = row * SLOTS_PER_ROW + col;
+        html += renderMinusSlot(i < count);
+      }
+      html += '</div>';
     }
     html += '</div>';
     return html;
@@ -898,7 +972,7 @@
 
   function renderStars(n) {
     let html = '<div class="star-slots" aria-label="' + n + ' Sterne">';
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= 2; i++) {
       html += '<span class="star-slot' + (i <= n ? ' on' : '') + '" aria-hidden="true">★</span>';
     }
     html += '</div>';
@@ -915,7 +989,7 @@
       const eff = effectivePluses(s);
       const stars = starsFromEffective(eff);
       return (
-        '<article class="card" data-id="' + s.id + '">' +
+        '<article class="card" data-id="' + s.id + '" draggable="false">' +
           '<div class="card-top">' +
             '<h3 class="student-name">' + escapeHtml(s.name) + '</h3>' +
             '<div class="card-menu">' +
@@ -952,17 +1026,51 @@
       .replace(/"/g, '&quot;');
   }
 
+  // Slot interaction:
+  // - Single click empty Plus/Minus → add one
+  // - Double-click filled Plus/Minus → remove one
+  // Empty vs filled never share the same gesture, so click and dblclick do not fight.
   el.students.addEventListener('click', function (e) {
     const btn = e.target.closest('button[data-act]');
-    if (!btn) return;
-    const card = btn.closest('[data-id]');
+    if (btn) {
+      const card = btn.closest('[data-id]');
+      if (!card) return;
+      const id = card.getAttribute('data-id');
+      const act = btn.getAttribute('data-act');
+      if (act === 'plus') addPlus(id);
+      else if (act === 'minus') addMinus(id);
+      else if (act === 'rename') openRename(id);
+      else if (act === 'remove') openRemove(id);
+      return;
+    }
+    const slot = e.target.closest('[data-slot]');
+    if (!slot) return;
+    if (slot.getAttribute('data-filled') !== '0') return; // filled uses dblclick only
+    e.preventDefault();
+    const card = slot.closest('[data-id]');
     if (!card) return;
     const id = card.getAttribute('data-id');
-    const act = btn.getAttribute('data-act');
-    if (act === 'plus') addPlus(id);
-    else if (act === 'minus') addMinus(id);
-    else if (act === 'rename') openRename(id);
-    else if (act === 'remove') openRemove(id);
+    const kind = slot.getAttribute('data-slot');
+    if (kind === 'plus') addPlus(id);
+    else if (kind === 'minus') addMinus(id);
+  });
+
+  el.students.addEventListener('dblclick', function (e) {
+    const slot = e.target.closest('[data-slot]');
+    if (!slot) return;
+    if (slot.getAttribute('data-filled') !== '1') return; // empty uses single click only
+    e.preventDefault();
+    const card = slot.closest('[data-id]');
+    if (!card) return;
+    const id = card.getAttribute('data-id');
+    const kind = slot.getAttribute('data-slot');
+    if (kind === 'plus') removePlus(id);
+    else if (kind === 'minus') removeMinus(id);
+  });
+
+  // Reduce accidental text selection / drag while tapping slots on tablets
+  el.students.addEventListener('dragstart', function (e) {
+    if (e.target.closest('.card')) e.preventDefault();
   });
 
   function openModal(opts) {
