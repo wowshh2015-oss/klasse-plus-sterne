@@ -1141,9 +1141,43 @@
   function normalizeText(s) {
     return String(s || '')
       .toLowerCase()
-      .replace(/[.,!?…:;]+/g, ' ')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/ß/g, 'ss')
+      .replace(/[.,!?…:;«»"'\-–—]+/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  function softPhonetic(s) {
+    let t = normalizeText(s);
+    t = t.replace(/ph/g, 'f');
+    t = t.replace(/ae/g, 'a');
+    t = t.replace(/ay|aj/g, 'ai');
+    t = t.replace(/c/g, 'k');
+    t = t.replace(/\bh(?=[aeiouyäöü])/g, '');
+    t = t.replace(/(.)\1+/g, '$1');
+    return t;
+  }
+
+  function sharedPrefixLen(a, b) {
+    const n = Math.min(a.length, b.length);
+    let i = 0;
+    while (i < n && a[i] === b[i]) i++;
+    return i;
+  }
+
+  function tokenOverlap(a, b) {
+    const ta = a.split(' ').filter(Boolean);
+    const tb = b.split(' ').filter(Boolean);
+    if (!ta.length || !tb.length) return 0;
+    let hits = 0;
+    ta.forEach(function (x) {
+      tb.forEach(function (y) {
+        if (x === y || x.indexOf(y) === 0 || y.indexOf(x) === 0) hits++;
+      });
+    });
+    return hits;
   }
 
   function levenshtein(a, b) {
@@ -1170,67 +1204,163 @@
     return normalizeText(full).split(' ')[0];
   }
 
+  /** Alias keys are normalizeText() form → canonical first-name (normalized). */
   const NAME_ALIASES = {
-    kalil: 'khalil', khalil: 'khalil',
-    bela: 'bella', bella: 'bella',
-    mustafa: 'mostafa', mostafa: 'mostafa',
-    valeria: 'valeriia', valeriia: 'valeriia',
-    chantal: 'shantal', shantal: 'shantal',
-    ayan: 'aian', aian: 'aian',
-    musa: 'mussa', mussa: 'mussa',
-    andrea: 'andre', andre: 'andre',
-    amir: 'amer', amer: 'amer',
-    amara: 'amara',
-    ceren: 'ceren', seren: 'ceren',
-    noura: 'noura', nura: 'noura',
-    patricia: 'patricia',
-    emmi: 'emmi', emi: 'emmi',
-    sanna: 'sanna', sana: 'sanna',
-    mina: 'mina', leo: 'leo', rose: 'rose',
-    clara: 'clara', klara: 'clara',
+    // Aian (ASR: Haiyan / Hayan / Аян → Хайян)
+    aian: 'aian', ayan: 'aian', ajan: 'aian', aiann: 'aian',
+    haiyan: 'aian', hayan: 'aian', hayyan: 'aian', haijan: 'aian',
+    ayyan: 'aian', aiian: 'aian', ian: 'aian',
+    // Amara / Amer
+    amara: 'amara', amira: 'amara',
+    amer: 'amer', amir: 'amer', aamer: 'amer',
+    // Andre
+    andre: 'andre', andrea: 'andre', andré: 'andre', andree: 'andre',
+    // Bella
+    bella: 'bella', bela: 'bella', belah: 'bella',
+    // Ceren
+    ceren: 'ceren', seren: 'ceren', zeren: 'ceren', tseren: 'ceren',
+    // Clara
+    clara: 'clara', klara: 'clara', claraa: 'clara',
+    // Emmi
+    emmi: 'emmi', emi: 'emmi', emmie: 'emmi', emmy: 'emmi',
+    // Khalil
+    khalil: 'khalil', kalil: 'khalil', chalil: 'khalil', halil: 'khalil', calil: 'khalil',
+    // Leo / Mina
+    leo: 'leo', lea: 'leo',
+    mina: 'mina', meena: 'mina', myna: 'mina',
+    // Mostafa
+    mostafa: 'mostafa', mustafa: 'mostafa', mostaffa: 'mostafa',
+    mustapha: 'mostafa', mostapha: 'mostafa',
+    // Mussa
+    mussa: 'mussa', musa: 'mussa', moussa: 'mussa', musaa: 'mussa',
+    // Noura
+    noura: 'noura', nura: 'noura', noora: 'noura', nora: 'noura',
+    // Patricia / Rose / Sanna / Shantal / Valeriia
+    patricia: 'patricia', patrizia: 'patricia', patricija: 'patricia',
+    rose: 'rose', rosa: 'rose',
+    sanna: 'sanna', sana: 'sanna', sahna: 'sanna',
+    shantal: 'shantal', chantal: 'shantal', schantal: 'shantal',
+    shantall: 'shantal', chantel: 'shantal',
+    valeriia: 'valeriia', valeria: 'valeriia', valeriya: 'valeriia',
+    valerija: 'valeriia', valery: 'valeriia', waleria: 'valeriia',
   };
 
-  function fuzzyFindStudent(spokenName) {
-    let q = normalizeText(spokenName);
-    if (!q) return null;
-    if (NAME_ALIASES[q]) q = NAME_ALIASES[q];
+  function resolveAlias(q) {
+    const n = normalizeText(q);
+    if (NAME_ALIASES[n]) return NAME_ALIASES[n];
+    const soft = softPhonetic(n);
+    if (NAME_ALIASES[soft]) return NAME_ALIASES[soft];
+    // try alias keys after soft phonetic on both sides
+    for (const key of Object.keys(NAME_ALIASES)) {
+      if (softPhonetic(key) === soft) return NAME_ALIASES[key];
+    }
+    return n;
+  }
+
+  /**
+   * Score spoken name against a roster student. Lower is better.
+   * Returns { dist, prefix, exact, aliased }.
+   */
+  function scoreNameAgainstStudent(spokenName, student, aggressive) {
+    const rawQ = normalizeText(spokenName);
+    if (!rawQ) return null;
+    const aliasedQ = resolveAlias(rawQ);
+    const softQ = softPhonetic(aliasedQ);
+    const fn = firstName(student.name);
+    const full = normalizeText(student.name);
+    const softFn = softPhonetic(fn);
+    const softFull = softPhonetic(full);
+    const canonFn = resolveAlias(fn);
+
+    let dist = Math.min(
+      levenshtein(aliasedQ, fn),
+      levenshtein(aliasedQ, full),
+      levenshtein(softQ, softFn),
+      levenshtein(softQ, softFull),
+      levenshtein(softQ, softPhonetic(canonFn))
+    );
+
+    let exact = (aliasedQ === fn || softQ === softFn || rawQ === fn);
+    let aliased = (NAME_ALIASES[normalizeText(spokenName)] != null) ||
+      (resolveAlias(rawQ) === canonFn && normalizeText(spokenName) !== fn);
+
+    if (aliasedQ === fn || softQ === softFn || aliasedQ === canonFn) {
+      dist = 0;
+      exact = exact || (normalizeText(spokenName) === fn);
+    }
+    if (fn.indexOf(aliasedQ) === 0 || aliasedQ.indexOf(fn) === 0) dist = Math.min(dist, 0.5);
+    if (softFn.indexOf(softQ) === 0 || softQ.indexOf(softFn) === 0) dist = Math.min(dist, 0.5);
+    if (full.indexOf(aliasedQ) !== -1 || softFull.indexOf(softQ) !== -1) dist = Math.min(dist, 0.5);
+
+    // Multi-token garbage: compare each token & best substring
+    const tokens = rawQ.split(' ').filter(Boolean);
+    tokens.forEach(function (tok) {
+      const tAlias = resolveAlias(tok);
+      const tSoft = softPhonetic(tAlias);
+      dist = Math.min(dist, levenshtein(tAlias, fn), levenshtein(tSoft, softFn));
+      if (tAlias === fn || tSoft === softFn || tAlias === canonFn) {
+        dist = 0;
+        aliased = true;
+      }
+    });
+
+    const overlap = tokenOverlap(softQ, softFn);
+    if (overlap > 0) dist = Math.min(dist, Math.max(0, softFn.length - overlap * 2));
+
+    // Substring containment of soft forms
+    if (softQ.length >= 3 && (softFn.indexOf(softQ) !== -1 || softQ.indexOf(softFn) !== -1)) {
+      dist = Math.min(dist, Math.abs(softQ.length - softFn.length) * 0.5);
+    }
+
+    const prefix = Math.max(
+      sharedPrefixLen(aliasedQ, fn),
+      sharedPrefixLen(softQ, softFn)
+    );
+
+    const threshold = aggressive
+      ? Math.max(2, Math.floor(fn.length / 2))
+      : Math.max(1, Math.floor(fn.length / 3));
+
+    if (dist > threshold) return null;
+    return { dist: dist, prefix: prefix, exact: exact && dist === 0 && !aliased, aliased: aliased || (!exact && dist === 0), threshold: threshold };
+  }
+
+  function fuzzyFindStudent(spokenName, aggressive) {
     let best = null;
-    let bestScore = Infinity;
+    let bestMeta = null;
     students.forEach(function (s) {
-      const fn = firstName(s.name);
-      const full = normalizeText(s.name);
-      let dist = Math.min(levenshtein(q, fn), levenshtein(q, full));
-      if (NAME_ALIASES[fn] && NAME_ALIASES[fn] === q) dist = 0;
-      if (fn.indexOf(q) === 0 || q.indexOf(fn) === 0) dist = Math.min(dist, 0.5);
-      if (full.indexOf(q) !== -1) dist = Math.min(dist, 0.5);
-      const threshold = Math.max(1, Math.floor(fn.length / 3));
-      if (dist <= threshold && dist < bestScore) {
-        bestScore = dist;
+      const meta = scoreNameAgainstStudent(spokenName, s, !!aggressive);
+      if (!meta) return;
+      if (
+        !bestMeta ||
+        meta.dist < bestMeta.dist ||
+        (meta.dist === bestMeta.dist && meta.prefix > bestMeta.prefix)
+      ) {
+        bestMeta = meta;
         best = s;
       }
     });
-    return best;
+    if (!best) return null;
+    return { student: best, meta: bestMeta, spoken: spokenName };
   }
 
-  function parseCommand(text) {
-    const raw = normalizeText(text);
-    if (!raw) return null;
+  const ACTION_WORDS = {
+    plus: ['plus', 'plus eins'],
+    minus: ['minus'],
+    stern: ['stern', 'sternchen'],
+  };
 
-    const actionWords = {
-      plus: ['plus', 'plus eins'],
-      minus: ['minus'],
-    };
-
-    let action = null;
+  function stripActionWords(raw) {
     let namePart = raw;
-    const tokens = raw.split(' ');
+    const tokens = raw.split(' ').filter(Boolean);
+    let action = null;
 
     function matchActionAt(startIdx) {
       for (let len = 2; len >= 1; len--) {
         if (startIdx + len > tokens.length) continue;
         const phrase = tokens.slice(startIdx, startIdx + len).join(' ');
-        for (const key of Object.keys(actionWords)) {
-          if (actionWords[key].indexOf(phrase) !== -1) {
+        for (const key of Object.keys(ACTION_WORDS)) {
+          if (ACTION_WORDS[key].indexOf(phrase) !== -1) {
             return { key: key, start: startIdx, end: startIdx + len };
           }
         }
@@ -1254,8 +1384,8 @@
       }
     }
     if (!action) {
-      for (const key of Object.keys(actionWords)) {
-        for (const w of actionWords[key]) {
+      for (const key of Object.keys(ACTION_WORDS)) {
+        for (const w of ACTION_WORDS[key]) {
           const re = new RegExp('(?:^|\\s)' + w.replace(/ /g, '\\s+') + '(?:\\s|$)');
           if (re.test(raw)) {
             action = key;
@@ -1266,11 +1396,81 @@
         if (action) break;
       }
     }
+    return { action: action, namePart: namePart };
+  }
 
-    if (!action || !namePart) return null;
-    const student = fuzzyFindStudent(namePart);
-    if (!student) return { error: 'name', namePart: namePart, action: action, raw: raw };
-    return { student: student, action: action, raw: raw };
+  function parseCommand(text) {
+    const raw = normalizeText(text);
+    if (!raw) return null;
+
+    const stripped = stripActionWords(raw);
+    if (!stripped.action || !stripped.namePart) return null;
+
+    const aggressive = true; // action known → generous name match
+    const hit = fuzzyFindStudent(stripped.namePart, aggressive);
+    if (!hit) {
+      return { error: 'name', namePart: stripped.namePart, action: stripped.action, raw: raw, transcript: text };
+    }
+    const spokenNorm = normalizeText(stripped.namePart);
+    const rosterNorm = firstName(hit.student.name);
+    const wasExact = spokenNorm === rosterNorm || softPhonetic(spokenNorm) === softPhonetic(rosterNorm);
+    return {
+      student: hit.student,
+      action: stripped.action,
+      raw: raw,
+      transcript: text,
+      namePart: stripped.namePart,
+      fuzzy: !wasExact || (hit.meta && hit.meta.aliased && hit.meta.dist === 0 && spokenNorm !== rosterNorm),
+      spokenName: stripped.namePart,
+    };
+  }
+
+  /** Score one transcript; lower score is better. null if unusable. */
+  function scoreParse(parsed) {
+    if (!parsed) return { score: Infinity, parsed: null };
+    if (parsed.error === 'name') return { score: 1000, parsed: parsed };
+    const base = parsed.fuzzy ? 10 : 0;
+    const actionPenalty = parsed.action === 'stern' ? 1 : 0;
+    return { score: base + actionPenalty, parsed: parsed };
+  }
+
+  function pickBestFromAlternatives(result) {
+    let best = null;
+    let bestScore = Infinity;
+    const n = Math.min(result.length || 0, 8);
+    for (let a = 0; a < n; a++) {
+      const alt = result[a];
+      if (!alt || !alt.transcript) continue;
+      const parsed = parseCommand(alt.transcript);
+      const scored = scoreParse(parsed);
+      // Prefer successful student matches heavily
+      let s = scored.score;
+      if (parsed && parsed.student) {
+        // refine with fuzzy meta if available
+        const hit = fuzzyFindStudent(parsed.namePart || '', true);
+        if (hit && hit.meta) s = hit.meta.dist * 10 - hit.meta.prefix + (parsed.fuzzy ? 1 : 0);
+        else s = 0;
+      } else if (parsed && parsed.error === 'name') {
+        s = 500 + (alt.confidence != null ? (1 - alt.confidence) : 0);
+      } else {
+        s = 2000;
+      }
+      // slight preference for higher ASR confidence when tied
+      if (alt.confidence != null) s += (1 - alt.confidence) * 0.01;
+      if (s < bestScore) {
+        bestScore = s;
+        best = parsed;
+        if (best) best.altIndex = a;
+        if (best) best.altTranscript = alt.transcript;
+      }
+    }
+    return best;
+  }
+
+  function actionLabel(action) {
+    if (action === 'minus') return 'Minus';
+    if (action === 'stern') return 'Stern';
+    return 'Plus';
   }
 
   function applyVoiceCommand(parsed) {
@@ -1284,10 +1484,61 @@
       el.lastCommand.textContent = 'Befehl: nicht gefunden («' + parsed.namePart + '»)';
       return;
     }
-    const label = parsed.action === 'plus' ? 'Plus' : 'Minus';
+    const label = actionLabel(parsed.action);
     el.lastCommand.textContent = 'Befehl: ' + parsed.student.name + ' → ' + label;
-    if (parsed.action === 'plus') addPlus(parsed.student.id);
-    else if (parsed.action === 'minus') addMinus(parsed.student.id);
+
+    // Toast correction when ASR name ≠ roster name
+    if (parsed.fuzzy) {
+      const heard = (parsed.altTranscript || parsed.transcript || parsed.spokenName || '').trim();
+      const heardName = parsed.spokenName || heard;
+      toast('«' + heardName + '» → ' + parsed.student.name + ' + ' + label, 'info');
+    }
+
+    if (parsed.action === 'minus') addMinus(parsed.student.id);
+    else addPlus(parsed.student.id); // plus + stern → Plus
+  }
+
+  function buildSpeechGrammar() {
+    try {
+      const SpeechGrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList;
+      if (!SpeechGrammarList) return null;
+      const names = [];
+      const seen = {};
+      students.forEach(function (s) {
+        const fn = String(s.name || '').split(/\s+/)[0];
+        if (fn && !seen[fn.toLowerCase()]) {
+          seen[fn.toLowerCase()] = true;
+          names.push(fn);
+        }
+      });
+      // Also bias common ASR mangling aliases (first tokens)
+      ['Haiyan', 'Hayan', 'Ayan', 'Ajan', 'Kalil', 'Valeria', 'Chantal', 'Mustafa', 'Musa', 'Klara', 'Seren', 'Nura', 'Emi', 'Amir'].forEach(function (a) {
+        if (!seen[a.toLowerCase()]) {
+          seen[a.toLowerCase()] = true;
+          names.push(a);
+        }
+      });
+      const actions = ['plus', 'Minus', 'Stern', 'Sternchen'];
+      const terms = names.concat(actions).map(function (t) {
+        return t.replace(/[();|<>]/g, '');
+      }).filter(Boolean);
+      if (!terms.length) return null;
+      const jsgf = '#JSGF V1.0; grammar classroom; public <cmd> = ' + terms.join(' | ') + ' ;';
+      const list = new SpeechGrammarList();
+      list.addFromString(jsgf, 1.0);
+      return list;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function applySpeechGrammar(rec) {
+    try {
+      const list = buildSpeechGrammar();
+      if (list) rec.grammars = list;
+    } catch (e) {
+      /* Chrome support is flaky — ignore */
+    }
   }
 
   function setListeningUI(on) {
@@ -1372,26 +1623,31 @@
     recognition.lang = 'de-DE';
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.maxAlternatives = 3;
+    recognition.maxAlternatives = 5;
+    applySpeechGrammar(recognition);
 
     recognition.onresult = function (event) {
       let interim = '';
       let displayFinal = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const res = event.results[i];
-        const t = res[0].transcript;
+        const top = res[0] ? res[0].transcript : '';
         if (res.isFinal) {
-          const key = i + ':' + normalizeText(t);
-          displayFinal += t;
-          if (!processedFinals.has(key) && normalizeText(t)) {
+          displayFinal += top;
+          const best = pickBestFromAlternatives(res);
+          const keyBase = best && best.student
+            ? (best.student.id + ':' + best.action)
+            : normalizeText(top);
+          const key = i + ':' + keyBase;
+          if (!processedFinals.has(key) && (normalizeText(top) || (best && best.student))) {
             processedFinals.add(key);
             if (processedFinals.size > 80) {
               processedFinals = new Set(Array.from(processedFinals).slice(-40));
             }
-            applyVoiceCommand(parseCommand(t));
+            applyVoiceCommand(best);
           }
         } else {
-          interim += t;
+          interim += top;
         }
       }
       el.liveTranscript.textContent = displayFinal || interim || 'Ich höre zu…';
@@ -1464,6 +1720,8 @@
     try {
       recognition.continuous = true;
       recognition.interimResults = true;
+      recognition.maxAlternatives = 5;
+      applySpeechGrammar(recognition);
       el.liveTranscript.textContent = 'Ich höre zu…';
       recognition.start();
       setListeningUI(true);

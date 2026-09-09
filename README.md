@@ -66,7 +66,9 @@ Button **Klasse** lädt diese Liste neu (Zähler auf null).
 3. Alternativ **kurz tippen** = Sitzung an/aus (praktisch auf Tablets).
 
 Beispiele: «Bella plus», «Amer Plus», «Khalil Minus» / «Kalil minus».  
-Aktionswörter: **plus**, **Minus**. Der Name wird unscharf mit der Schülerliste verglichen.
+Aktionswörter: **plus**, **Minus** (sowie **Stern**/**Sternchen** → Plus). Der Name wird unscharf mit der Schülerliste verglichen.
+
+**Namensabgleich:** Die App nutzt Aliase (z. B. Haiyan→Aian, Kalil→Khalil), phonetische Normalisierung und Levenshtein über bis zu 5 ASR-Alternativen; bei Korrektur erscheint kurz ein Toast «Haiyan» → Aian + Plus. Optional JSGF-Grammatik mit Klassennamen (Chrome oft ohne Wirkung).
 
 ## Bedienung
 
