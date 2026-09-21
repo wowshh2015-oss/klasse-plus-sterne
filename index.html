@@ -371,6 +371,9 @@
       min-height: 0;
       flex: 1 1 0;
     }
+    /* 3 plus rows vs 1 minus row — give Plus more vertical share */
+    .pluses-block { flex: 3 1 0; }
+    .minuses-block { flex: 1 1 0; }
     .stars-row { flex: 0 0 auto; min-height: 0; }
 
     .stat-label {
@@ -387,7 +390,7 @@
     .plus-grid, .minus-grid {
       display: flex;
       flex-direction: column;
-      gap: clamp(2px, 0.55vh, 6px);
+      gap: clamp(1px, 0.35vh, 4px);
       flex: 1;
       min-width: 0;
       min-height: 0;
@@ -412,7 +415,7 @@
       aspect-ratio: 1 / 1;
       height: 100%;
       width: auto;
-      max-width: min(28px, 18%);
+      max-width: min(24px, 18%);
       min-width: 0;
       min-height: 0;
       max-height: 100%;
@@ -773,11 +776,11 @@
 (function () {
   'use strict';
 
-  const STORAGE_KEY = 'classroom-plus-v7';
-  const MAX_PLUSES = 10;
-  const MAX_MINUSES = 10;
-  const PLUS_ROWS = 2;
-  const MINUS_ROWS = 2;
+  const STORAGE_KEY = 'classroom-plus-v8';
+  const MAX_PLUSES = 15;
+  const MAX_MINUSES = 5;
+  const PLUS_ROWS = 3;
+  const MINUS_ROWS = 1;
   const SLOTS_PER_ROW = 5;
   const ROSTER = [
     'Aian',
@@ -820,6 +823,7 @@
   }
 
   function starsFromEffective(eff) {
+    if (eff >= 15) return 3;
     if (eff >= 10) return 2;
     if (eff >= 5) return 1;
     return 0;
@@ -868,6 +872,7 @@
   function load() {
     try {
       let raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) raw = localStorage.getItem('classroom-plus-v7');
       if (!raw) raw = localStorage.getItem('classroom-plus-v6');
       if (!raw) raw = localStorage.getItem('classroom-plus-v5');
       if (raw) {
@@ -1057,7 +1062,7 @@
 
   function renderStars(n) {
     let html = '<div class="star-slots" aria-label="' + n + ' Sterne">';
-    for (let i = 1; i <= 2; i++) {
+    for (let i = 1; i <= 3; i++) {
       html += '<span class="star-slot' + (i <= n ? ' on' : '') + '" aria-hidden="true">★</span>';
     }
     html += '</div>';

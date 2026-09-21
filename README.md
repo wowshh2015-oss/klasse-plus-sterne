@@ -30,15 +30,15 @@ Live (GitHub Pages): https://wowshh2015-oss.github.io/klasse-plus-sterne/
 
 ## Regeln (Plus, Minus & Sterne)
 
-### Plus (2 × 5)
+### Plus (3 × 5)
 
 - Gute Arbeit → **+1 Plus** (nächster leerer Slot).
-- Maximal **10 Plus** (2 Reihen à 5).
+- Maximal **15 Plus** (3 Reihen à 5).
 
 ### Minus (unabhängig von Plus)
 
 - **Minus** +1 — auch bei 0 Plus.
-- Maximal **10 Minus** (2×5 unter Plus).
+- Maximal **5 Minus** (1 Reihe à 5 unter Plus).
 - Gedimmte Plus für `min(Plus, Minus)`; Extra-Minus bleiben in der Minus-Zeile sichtbar.
 
 ### Karten-Bedienung (Slots)
@@ -55,7 +55,7 @@ Buttons **＋ / −** bleiben Shortcuts.
 ### Effektive Plus & Sterne
 
 - **Effektive Plus** = `max(0, Plus − Minus)`.
-- ≥ **5** → 1 Stern, ≥ **10** → 2 Sterne (können bei Minus wieder erlöschen).
+- ≥ **5** → 1 Stern, ≥ **10** → 2 Sterne, ≥ **15** → 3 Sterne (können bei Minus wieder erlöschen).
 
 ### Zurücksetzen
 
@@ -72,7 +72,7 @@ Buttons **＋ / −** bleiben Shortcuts.
 1. **«Mikrofon erlauben»**, dann 🎤 halten oder tippen.
 2. z. B. «Amer plus», «Bella plus», «Khalil Minus» — mehrere Befehle in einem Halten möglich.
 
-Daten: `localStorage` Schlüssel `classroom-plus-v7` (ältere v6/v5 werden migriert).
+Daten: `localStorage` Schlüssel `classroom-plus-v8` (ältere v7/v6/v5 werden migriert; Plus auf max. 15, Minus auf max. 5 geklemmt).
 
 ## Bedienung
 
