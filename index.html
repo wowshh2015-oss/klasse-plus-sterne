@@ -602,6 +602,153 @@
       flex-wrap: wrap;
     }
 
+
+    /* Archive panel (overlay only; closed = zero board space) */
+    .archive-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(40, 28, 18, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1100;
+      padding: calc(12px + var(--safe-top)) calc(12px + var(--safe-right)) calc(12px + var(--safe-bottom)) calc(12px + var(--safe-left));
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .archive-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .archive-panel {
+      background: #fff;
+      border-radius: 14px;
+      padding: 14px 16px 12px;
+      max-width: 720px;
+      width: 100%;
+      max-height: min(88vh, 640px);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.2);
+      transform: translateY(10px);
+      transition: transform 0.2s;
+      min-height: 0;
+    }
+    .archive-overlay.open .archive-panel { transform: translateY(0); }
+    .archive-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .archive-head h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+    .archive-sub {
+      margin: 0;
+      font-size: 0.8rem;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .archive-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .archive-tab {
+      font-size: 0.72rem !important;
+      padding: 4px 8px !important;
+      min-height: 32px !important;
+      border-radius: 999px !important;
+      background: #f5ebe0;
+      color: var(--ink);
+      border: 1.5px solid transparent;
+    }
+    .archive-tab.active {
+      background: var(--accent-deep);
+      color: #fff;
+      border-color: var(--accent-deep);
+    }
+    .archive-body {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      border: 1px solid #f0e4d8;
+      border-radius: 10px;
+      background: #fffaf5;
+    }
+    .archive-dates {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .archive-dates li button {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid #f0e4d8;
+      border-radius: 0;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      min-height: 44px;
+    }
+    .archive-dates li button:hover { background: #fff3e8; }
+    .archive-dates .meta {
+      font-size: 0.75rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .archive-empty {
+      padding: 24px 16px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .archive-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    .archive-table th,
+    .archive-table td {
+      padding: 7px 10px;
+      text-align: left;
+      border-bottom: 1px solid #f0e4d8;
+    }
+    .archive-table th {
+      position: sticky;
+      top: 0;
+      background: #f8efe6;
+      font-weight: 700;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--muted);
+      z-index: 1;
+    }
+    .archive-table td.num,
+    .archive-table th.num { text-align: center; }
+    .archive-table tr:last-child td { border-bottom: none; }
+    .archive-actions {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+
     .toasts {
       position: fixed;
       bottom: calc(56px + var(--safe-bottom));
@@ -736,6 +883,7 @@
       </div>
       <div class="toolbar">
         <button type="button" class="btn-primary btn-hide-fs" id="btnAdd">＋ Schüler</button>
+        <button type="button" class="btn-secondary" id="btnArchive">Archiv</button>
         <button type="button" class="btn-secondary" id="btnExport">CSV</button>
         <button type="button" class="btn-secondary" id="btnSeed">Klasse</button>
         <button type="button" class="btn-danger" id="btnReset">Zurücksetzen</button>
@@ -772,11 +920,29 @@
     </div>
   </div>
 
+  <div class="archive-overlay" id="archiveOverlay" role="dialog" aria-modal="true" aria-labelledby="archiveTitle">
+    <div class="archive-panel">
+      <div class="archive-head">
+        <h3 id="archiveTitle">Archiv</h3>
+        <button type="button" class="btn-secondary" id="archiveCloseTop">✕</button>
+      </div>
+      <p class="archive-sub" id="archiveSub">Vergangene Tage (nur auf diesem Gerät)</p>
+      <div class="archive-tabs" id="archiveTabs" hidden></div>
+      <div class="archive-body" id="archiveBody"></div>
+      <div class="archive-actions">
+        <button type="button" class="btn-secondary" id="archiveCsv" hidden>CSV (Tag)</button>
+        <button type="button" class="btn-secondary" id="archiveBack" hidden>← Tage</button>
+        <button type="button" class="btn-primary" id="archiveClose">Zurück zur Klasse</button>
+      </div>
+    </div>
+  </div>
+
   <script>
 (function () {
   'use strict';
 
   const STORAGE_KEY = 'classroom-plus-v8';
+  const ARCHIVE_KEY = 'classroom-plus-archive-v1';
   const MAX_PLUSES = 15;
   const MAX_MINUSES = 5;
   const PLUS_ROWS = 3;
@@ -829,6 +995,102 @@
     return 0;
   }
 
+  function berlinDateKey(d) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Berlin',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d || new Date());
+  }
+
+  function berlinTimeHm(d) {
+    return new Intl.DateTimeFormat('de-DE', {
+      timeZone: 'Europe/Berlin',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(d || new Date());
+  }
+
+  function formatArchiveDateLabel(ymd) {
+    const parts = String(ymd || '').split('-');
+    if (parts.length !== 3) return ymd;
+    const dt = new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12));
+    return dt.toLocaleDateString('de-DE', {
+      timeZone: 'Europe/Berlin',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  }
+
+  function snapshotStudents() {
+    return students.map(function (s) {
+      const eff = effectivePluses(s);
+      return {
+        name: s.name,
+        pluses: s.pluses || 0,
+        minuses: s.minuses || 0,
+        stars: starsFromEffective(eff),
+      };
+    });
+  }
+
+  function loadArchive() {
+    try {
+      const raw = localStorage.getItem(ARCHIVE_KEY);
+      if (!raw) return {};
+      const data = JSON.parse(raw);
+      return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function writeArchive(archive) {
+    try {
+      localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive));
+    } catch (e) {
+      toast('Archiv speichern fehlgeschlagen', 'warn');
+    }
+  }
+
+  function archiveTodayMain() {
+    const key = berlinDateKey();
+    const archive = loadArchive();
+    const now = new Date();
+    const entry = archive[key] || { date: key, savedAt: now.toISOString(), students: [], snapshots: [] };
+    entry.date = key;
+    entry.savedAt = now.toISOString();
+    entry.students = snapshotStudents();
+    if (!Array.isArray(entry.snapshots)) entry.snapshots = [];
+    archive[key] = entry;
+    writeArchive(archive);
+  }
+
+  function savePreResetSnapshot() {
+    const key = berlinDateKey();
+    const archive = loadArchive();
+    const now = new Date();
+    const entry = archive[key] || { date: key, savedAt: now.toISOString(), students: [], snapshots: [] };
+    if (!Array.isArray(entry.snapshots)) entry.snapshots = [];
+    const snapStudents = snapshotStudents();
+    entry.snapshots.push({
+      id: 'snap_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      label: 'Vor Reset ' + berlinTimeHm(now),
+      savedAt: now.toISOString(),
+      students: snapStudents,
+    });
+    // Keep main day record as the latest live totals at reset time (lesson just ending).
+    entry.students = snapStudents;
+    entry.savedAt = now.toISOString();
+    entry.date = key;
+    archive[key] = entry;
+    writeArchive(archive);
+  }
+
   let students = [];
   let modalMode = null;
   let modalTargetId = null;
@@ -864,6 +1126,7 @@
         };
       });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      archiveTodayMain();
     } catch (e) {
       toast('Speichern fehlgeschlagen', 'warn');
     }
@@ -1308,10 +1571,11 @@
       danger: true,
     });
     if (!ok) return;
+    savePreResetSnapshot();
     students.forEach(function (s) { s.pluses = 0; s.minuses = 0; });
     save();
     render();
-    toast('Alle Zähler auf null', 'warn');
+    toast('Gespeichert im Archiv, Zähler auf null', 'warn');
   });
 
   // Fullscreen toggle (board / tablet)
@@ -2065,6 +2329,204 @@
       e.stopPropagation();
     });
   }
+
+
+  // ——— Tages-Archiv UI ———
+  const archiveOverlay = document.getElementById('archiveOverlay');
+  const archiveBody = document.getElementById('archiveBody');
+  const archiveSub = document.getElementById('archiveSub');
+  const archiveTabs = document.getElementById('archiveTabs');
+  const archiveCsvBtn = document.getElementById('archiveCsv');
+  const archiveBackBtn = document.getElementById('archiveBack');
+  let archiveView = { mode: 'list', dateKey: null, snapId: null };
+  let archiveExportRows = null;
+
+  function closeArchive() {
+    archiveOverlay.classList.remove('open');
+    archiveView = { mode: 'list', dateKey: null, snapId: null };
+    archiveExportRows = null;
+  }
+
+  function openArchive() {
+    archiveView = { mode: 'list', dateKey: null, snapId: null };
+    renderArchive();
+    archiveOverlay.classList.add('open');
+  }
+
+  function archiveStudentRows(list) {
+    return (list || []).slice().sort(function (a, b) {
+      return String(a.name || '').localeCompare(String(b.name || ''), 'de', { sensitivity: 'base' });
+    });
+  }
+
+  function renderArchiveTable(list) {
+    const rows = archiveStudentRows(list);
+    archiveExportRows = rows;
+    if (!rows.length) {
+      return '<div class="archive-empty">Keine Einträge für diese Ansicht.</div>';
+    }
+    let html = '<table class="archive-table"><thead><tr>' +
+      '<th>Name</th><th class="num">Plus</th><th class="num">Minus</th><th class="num">Eff.</th><th class="num">Sterne</th>' +
+      '</tr></thead><tbody>';
+    rows.forEach(function (s) {
+      const pluses = parseInt(s.pluses, 10) || 0;
+      const minuses = parseInt(s.minuses, 10) || 0;
+      const eff = Math.max(0, pluses - minuses);
+      const stars = typeof s.stars === 'number' ? s.stars : starsFromEffective(eff);
+      html += '<tr><td>' + escapeHtml(s.name) + '</td>' +
+        '<td class="num">' + pluses + '</td>' +
+        '<td class="num">' + minuses + '</td>' +
+        '<td class="num">' + eff + '</td>' +
+        '<td class="num">' + stars + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function renderArchive() {
+    const archive = loadArchive();
+    archiveTabs.hidden = true;
+    archiveTabs.innerHTML = '';
+    archiveCsvBtn.hidden = true;
+    archiveBackBtn.hidden = true;
+    archiveExportRows = null;
+
+    if (archiveView.mode === 'list') {
+      document.getElementById('archiveTitle').textContent = 'Archiv';
+      archiveSub.textContent = 'Vergangene Tage (nur auf diesem Gerät, Europe/Berlin)';
+      const keys = Object.keys(archive).filter(function (k) {
+        return archive[k] && typeof archive[k] === 'object';
+      }).sort(function (a, b) { return a < b ? 1 : a > b ? -1 : 0; });
+      if (!keys.length) {
+        archiveBody.innerHTML = '<div class="archive-empty">Noch keine Archiv-Tage.<br>Sobald Plus/Minus gesetzt werden, erscheint der heutige Tag hier.</div>';
+        return;
+      }
+      let html = '<ul class="archive-dates">';
+      keys.forEach(function (k) {
+        const entry = archive[k];
+        const n = (entry.students && entry.students.length) || 0;
+        const snaps = Array.isArray(entry.snapshots) ? entry.snapshots.length : 0;
+        const meta = n + ' Kinder' + (snaps ? ' · ' + snaps + ' Snapshot' + (snaps === 1 ? '' : 's') : '');
+        html += '<li><button type="button" data-archive-date="' + escapeHtml(k) + '">' +
+          '<span>' + escapeHtml(formatArchiveDateLabel(k)) + '</span>' +
+          '<span class="meta">' + escapeHtml(meta) + '</span></button></li>';
+      });
+      html += '</ul>';
+      archiveBody.innerHTML = html;
+      return;
+    }
+
+    // day / snapshot detail
+    const entry = archive[archiveView.dateKey];
+    archiveBackBtn.hidden = false;
+    archiveCsvBtn.hidden = false;
+    document.getElementById('archiveTitle').textContent = formatArchiveDateLabel(archiveView.dateKey);
+    const snaps = entry && Array.isArray(entry.snapshots) ? entry.snapshots : [];
+
+    if (snaps.length) {
+      archiveTabs.hidden = false;
+      const mainActive = !archiveView.snapId;
+      const mainBtn = document.createElement('button');
+      mainBtn.type = 'button';
+      mainBtn.className = 'archive-tab' + (mainActive ? ' active' : '');
+      mainBtn.textContent = 'Aktuell / Tag';
+      mainBtn.setAttribute('data-archive-snap', '');
+      archiveTabs.appendChild(mainBtn);
+      snaps.forEach(function (snap) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'archive-tab' + (archiveView.snapId === snap.id ? ' active' : '');
+        b.textContent = snap.label || 'Snapshot';
+        b.setAttribute('data-archive-snap', snap.id);
+        archiveTabs.appendChild(b);
+      });
+    }
+
+    let list = entry ? entry.students : [];
+    let sub = 'Stand des Tages';
+    if (archiveView.snapId) {
+      const snap = snaps.find(function (x) { return x.id === archiveView.snapId; });
+      list = snap ? snap.students : [];
+      sub = snap ? ('Snapshot: ' + (snap.label || '')) : 'Snapshot nicht gefunden';
+    } else if (snaps.length) {
+      sub = 'Aktueller Tagesstand' + (entry && entry.savedAt ? ' · zuletzt ' + formatSavedAt(entry.savedAt) : '');
+    } else if (entry && entry.savedAt) {
+      sub = 'Zuletzt gespeichert ' + formatSavedAt(entry.savedAt);
+    }
+    archiveSub.textContent = sub;
+    archiveBody.innerHTML = renderArchiveTable(list);
+  }
+
+  function formatSavedAt(iso) {
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleString('de-DE', {
+        timeZone: 'Europe/Berlin',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function exportArchiveCsv() {
+    const rows = archiveExportRows || [];
+    const header = 'Name;Plus;Minus;EffektivePlus;Sterne';
+    const body = rows.map(function (s) {
+      const pluses = parseInt(s.pluses, 10) || 0;
+      const minuses = parseInt(s.minuses, 10) || 0;
+      const eff = Math.max(0, pluses - minuses);
+      const stars = typeof s.stars === 'number' ? s.stars : starsFromEffective(eff);
+      return csvCell(s.name) + ';' + pluses + ';' + minuses + ';' + eff + ';' + stars;
+    });
+    const bom = '\uFEFF';
+    const csv = bom + header + '\n' + body.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const suffix = archiveView.snapId ? '-snapshot' : '';
+    a.download = 'archiv-' + (archiveView.dateKey || 'tag') + suffix + '.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('Archiv-CSV heruntergeladen', 'success');
+  }
+
+  document.getElementById('btnArchive').addEventListener('click', openArchive);
+  document.getElementById('archiveClose').addEventListener('click', closeArchive);
+  document.getElementById('archiveCloseTop').addEventListener('click', closeArchive);
+  archiveBackBtn.addEventListener('click', function () {
+    archiveView = { mode: 'list', dateKey: null, snapId: null };
+    renderArchive();
+  });
+  archiveCsvBtn.addEventListener('click', exportArchiveCsv);
+  archiveOverlay.addEventListener('click', function (e) {
+    if (e.target === archiveOverlay) closeArchive();
+  });
+  archiveBody.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-archive-date]');
+    if (!btn) return;
+    archiveView = { mode: 'day', dateKey: btn.getAttribute('data-archive-date'), snapId: null };
+    renderArchive();
+  });
+  archiveTabs.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-archive-snap]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-archive-snap') || null;
+    archiveView.snapId = id || null;
+    renderArchive();
+  });
 
   const headerDate = document.getElementById('headerDate');
   let lastDateKey = '';

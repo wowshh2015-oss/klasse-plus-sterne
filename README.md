@@ -25,7 +25,7 @@ Live (GitHub Pages): https://wowshh2015-oss.github.io/klasse-plus-sterne/
 
 - Seite nutzt `100dvh`, Flex-Spalte; `#students` füllt den Rest (`flex: 1; min-height: 0; overflow: hidden`) — **kein Scrollen** im Schüler-Raster.
 - Raster: typisch **5 Spalten × 4 Zeilen** (Querformat); Karten und Slots schrumpfen mit `minmax(0, 1fr)` / `aspect-ratio`.
-- Kopfzeile kompakt: Datum, CSV, Klasse, Zurücksetzen, **Vollbild**; in Vollbild wird «＋ Schüler» ausgeblendet und Abstände weiter reduziert.
+- Kopfzeile kompakt: Datum, Archiv, CSV, Klasse, Zurücksetzen, **Vollbild**; in Vollbild wird «＋ Schüler» ausgeblendet und Abstände weiter reduziert.
 - Mikrofon-Leiste schwebt unten (leicht transparent), deckt keine Namen ab.
 
 ## Regeln (Plus, Minus & Sterne)
@@ -61,6 +61,13 @@ Buttons **＋ / −** bleiben Shortcuts.
 
 - **Zurücksetzen:** Plus und Minus auf 0 (Namen bleiben).
 
+### Archiv (persönlich, lokal)
+
+- Button **Archiv** in der Kopfzeile: vergangene Tage einsehen (nur auf diesem Gerät, `localStorage`).
+- Speichert automatisch den aktuellen Tagesstand unter dem Kalenderdatum **Europe/Berlin** (`YYYY-MM-DD`).
+- Bei **Zurücksetzen** wird vorher ein Snapshot z. B. «Vor Reset 14:32» angelegt — so bleibt Stunde 1 erhalten, wenn Stunde 2 beginnt.
+- Optional CSV-Export für den gewählten Tag/Snapshot. Schlüssel: `classroom-plus-archive-v1`.
+
 ## Datum & Klasse
 
 - Kopf: aktuelles Datum (kurz, deutsch).
@@ -82,7 +89,8 @@ Daten: `localStorage` Schlüssel `classroom-plus-v8` (ältere v7/v6/v5 werden mi
 | ＋ Schüler | Hinzufügen (in Vollbild ausgeblendet) |
 | CSV | Export `Name;Plus;Minus;EffektivePlus;Sterne` |
 | Klasse | Die 19 Namen (Zähler null) |
-| Zurücksetzen | Plus/Minus null |
+| Zurücksetzen | Plus/Minus null (Snapshot «Vor Reset …» im Archiv) |
+| Archiv | Vergangene Tage / Snapshots ansehen (lokal) |
 
 ## Dateien
 
